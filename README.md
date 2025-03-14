@@ -1,224 +1,121 @@
-#XNL-21BCE6129-DEV-4.
-# XNL Innovations - Fully Automated Data-Driven, High-Availability System
+# kube-prometheus
 
-## 📌 Project Overview
-This project builds a **fully automated, high-availability, real-time analytics system** that supports **global data processing, edge computing, disaster recovery, and self-healing infrastructure**. 
+[![Build Status](https://github.com/prometheus-operator/kube-prometheus/workflows/ci/badge.svg)](https://github.com/prometheus-operator/kube-prometheus/actions)
+[![Slack](https://img.shields.io/badge/join%20slack-%23prometheus--operator-brightgreen.svg)](http://slack.k8s.io/)
+[![Gitpod ready-to-code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/prometheus-operator/kube-prometheus)
 
----
+> Note that everything is experimental and may change significantly at any time.
 
-## 📂 Required Files for Submission
-Ensure the following files are uploaded to the GitHub repository:
+This repository collects Kubernetes manifests, [Grafana](http://grafana.com/) dashboards, and [Prometheus rules](https://prometheus.io/docs/prometheus/latest/configuration/recording_rules/) combined with documentation and scripts to provide easy to operate end-to-end Kubernetes cluster monitoring with [Prometheus](https://prometheus.io/) using the Prometheus Operator.
 
-- **Terraform Configuration Files:** `main.tf`, `variables.tf`, `outputs.tf`
-- **Kubernetes Manifests:** `deployment.yaml`, `service.yaml`, `hpa.yaml`
-- **CI/CD Pipelines:** `.github/workflows/deploy.yaml` or `Jenkinsfile`
-- **Monitoring Dashboards:** Grafana JSON configuration
-- **Load Testing Scripts:** `load-test.js`
-- **Security Reports:** `zap-report.html`, `kube-bench-report.txt`
-- **Architecture Diagram:** `architecture.png`
-- **Demo Video:** `demo.mp4`
-- **README.md:** (This file itself)
+The content of this project is written in [jsonnet](http://jsonnet.org/). This project could both be described as a package as well as a library.
 
----
+Components included in this package:
 
+* The [Prometheus Operator](https://github.com/prometheus-operator/prometheus-operator)
+* Highly available [Prometheus](https://prometheus.io/)
+* Highly available [Alertmanager](https://github.com/prometheus/alertmanager)
+* [Prometheus node-exporter](https://github.com/prometheus/node_exporter)
+* [Prometheus blackbox-exporter](https://github.com/prometheus/blackbox_exporter)
+* [Prometheus Adapter for Kubernetes Metrics APIs](https://github.com/kubernetes-sigs/prometheus-adapter)
+* [kube-state-metrics](https://github.com/kubernetes/kube-state-metrics)
+* [Grafana](https://grafana.com/)
 
-## 📷 Architecture Diagram
-![Image](https://github.com/user-attachments/assets/6b3cc099-a9fe-4022-8891-e9db0a3c8d73)
+This stack is meant for cluster monitoring, so it is pre-configured to collect metrics from all Kubernetes components. In addition to that it delivers a default set of dashboards and alerting rules. Many of the useful dashboards and alerts come from the [kubernetes-mixin project](https://github.com/kubernetes-monitoring/kubernetes-mixin), similar to this project it provides composable jsonnet as a library for users to customize to their needs.
 
----
+## Prerequisites
 
-# 📌 Part 1: Infrastructure Automation (Terraform)
+You will need a Kubernetes cluster, that's it! By default it is assumed, that the kubelet uses token authentication and authorization, as otherwise Prometheus needs a client certificate, which gives it full access to the kubelet, rather than just the metrics. Token authentication and authorization allows more fine grained and easier access control.
 
-### 🛠️ **1.1 Install & Set Up Terraform**
+This means the kubelet configuration must contain these flags:
 
-#### **🔹 Verify Terraform Installation**
-```bash
-terraform -v  # Check Terraform version
-```
-📌 **Attach Screenshot:** Terraform version output
-![Image](https://github.com/user-attachments/assets/a9459f8e-9000-45b0-bb52-bc6d03d844f1)
+* `--authentication-token-webhook=true` This flag enables, that a `ServiceAccount` token can be used to authenticate against the kubelet(s). This can also be enabled by setting the kubelet configuration value `authentication.webhook.enabled` to `true`.
+* `--authorization-mode=Webhook` This flag enables, that the kubelet will perform an RBAC request with the API to determine, whether the requesting entity (Prometheus in this case) is allowed to access a resource, in specific for this project the `/metrics` endpoint. This can also be enabled by setting the kubelet configuration value `authorization.mode` to `Webhook`.
 
-#### **🔹 Create Terraform Configuration Files**
-```bash
-mkdir terraform-setup && cd terraform-setup
-nano main.tf  # Create main Terraform configuration file
-```
-📌 **Attach Screenshot:** `main.tf` content
-![Image](https://github.com/user-attachments/assets/fe6490cc-78bf-4b9e-9589-6e70ca48d986)
+This stack provides [resource metrics](https://github.com/kubernetes/metrics#resource-metrics-api) by deploying
+the [Prometheus Adapter](https://github.com/kubernetes-sigs/prometheus-adapter).
+This adapter is an Extension API Server and Kubernetes needs to be have this feature enabled, otherwise the adapter has
+no effect, but is still deployed.
 
-#### **🔹 Define AWS Provider in `main.tf`**
-```hcl
-provider "aws" {
-  region = "us-east-1"
-}
-```
+## Compatibility
 
-#### **🔹 Initialize Terraform**
-```bash
-terraform init
-```
-📌 **Attach Screenshot:** Terraform initialization output
-  ![Image](https://github.com/user-attachments/assets/92029bb4-fe86-4300-a8a2-a72832c9482f)
+The following Kubernetes versions are supported and work as we test against these versions in their respective branches. But note that other versions might work!
 
-#### **🔹 Deploy Infrastructure**
-```bash
-terraform apply -auto-approve
-```
+| kube-prometheus stack                                                                      | Kubernetes 1.23 | Kubernetes 1.24 | Kubernetes 1.25 | Kubernetes 1.26 | Kubernetes 1.27 | Kubernetes 1.28 | Kubernetes 1.29 | Kubernetes 1.30 | Kubernetes 1.31 |
+|--------------------------------------------------------------------------------------------|-----------------|-----------------|-----------------|-----------------|-----------------|-----------------|-----------------|-----------------|-----------------|
+| [`release-0.11`](https://github.com/prometheus-operator/kube-prometheus/tree/release-0.11) | ✔               | ✔               | ✗               | x               | x               | x               | x               | x               | x               |
+| [`release-0.12`](https://github.com/prometheus-operator/kube-prometheus/tree/release-0.12) | ✗               | ✔               | ✔               | x               | x               | x               | x               | x               | x               |
+| [`release-0.13`](https://github.com/prometheus-operator/kube-prometheus/tree/release-0.13) | ✗               | ✗               | x               | ✔               | ✔               | ✔               | x               | x               | x               |
+| [`release-0.14`](https://github.com/prometheus-operator/kube-prometheus/tree/release-0.14) | ✗               | ✗               | x               | ✔               | ✔               | ✔               | ✔               | ✔               | ✔               |
+| [`main`](https://github.com/prometheus-operator/kube-prometheus/tree/main)                 | ✗               | ✗               | x               | x               | ✔               | ✔               | ✔               | ✔               | ✔               |
 
+## Quickstart
 
----
+This project is intended to be used as a library (i.e. the intent is not for you to create your own modified copy of this repository).
 
-### 🛠️ **1.2 Deploy EC2 Instance**
+Though for a quickstart a compiled version of the Kubernetes [manifests](manifests) generated with this library (specifically with `example.jsonnet`) is checked into this repository in order to try the content out quickly. To try out the stack un-customized run:
+* Create the monitoring stack using the config in the `manifests` directory:
 
-#### **🔹 Define EC2 Instance in `main.tf`**
-```hcl
-resource "aws_instance" "app_server" {
-  ami           = "ami-12345678"  # Replace with the latest Amazon Linux AMI ID
-  instance_type = "t2.micro"
-  key_name      = "my-key"
-}
+```shell
+# Create the namespace and CRDs, and then wait for them to be available before creating the remaining resources
+# Note that due to some CRD size we are using kubectl server-side apply feature which is generally available since kubernetes 1.22.
+# If you are using previous kubernetes versions this feature may not be available and you would need to use kubectl create instead.
+kubectl apply --server-side -f manifests/setup
+kubectl wait \
+	--for condition=Established \
+	--all CustomResourceDefinition \
+	--namespace=monitoring
+kubectl apply -f manifests/
 ```
 
-#### **🔹 Apply Configuration**
-```bash
-terraform apply -auto-approve
-```
-📌 **Attach Screenshot:** Running EC2 instance
-![Image](https://github.com/user-attachments/assets/5389a7bf-660a-4677-a550-e747d375da91)
+We create the namespace and CustomResourceDefinitions first to avoid race conditions when deploying the monitoring components.
+Alternatively, the resources in both folders can be applied with a single command
+`kubectl apply --server-side -f manifests/setup -f manifests`, but it may be necessary to run the command multiple times for all components to
+be created successfully.
 
-#### **🔹 Connect to EC2 Instance**
-```bash
-ssh -i "path/to/key.pem" ec2-user@<EC2-PUBLIC-IP>
-```
-📌 **Attach Screenshot:** Successful SSH connection
-![Image](https://github.com/user-attachments/assets/601b7f16-fbe3-4228-9a8a-34b3b9b2bb53)
+* And to teardown the stack:
 
----
-
-# 📌 Part 2: Kubernetes Cluster Deployment
-
-### 🛠️ **2.1 Install Kubernetes CLI Tools**
-
-#### **🔹 Install kubectl**
-```bash
-choco install kubernetes-cli -y  # Windows
-sudo apt install kubectl -y  # Linux
+```shell
+kubectl delete --ignore-not-found=true -f manifests/ -f manifests/setup
 ```
 
-#### **🔹 Install eksctl**
-```bash
-choco install eksctl -y  # Windows
-sudo curl -sSL "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /usr/local/bin  # Linux
-```
-📌 **Attach Screenshot:** kubectl and eksctl versions
-![Image](https://github.com/user-attachments/assets/b225102c-3995-4993-83f8-9eed7ecf366b)
+### minikube
 
----
+To try out this stack, start [minikube](https://github.com/kubernetes/minikube) with the following command:
 
-### 🛠️ **2.2 Deploy EKS Cluster**
-
-#### **🔹 Create an EKS Cluster**
-```bash
-eksctl create cluster --name xnl-eks-cluster --region us-east-1 --nodegroup-name eks-nodes
-```
-📌 **Attach Screenshot:** EKS Cluster creation logs
-![Image](https://github.com/user-attachments/assets/aaa3d194-7bad-48b5-a95e-ca864e0dc996)
-
-
-#### **🔹 Verify Cluster**
-```bash
-kubectl get nodes
-```
-📌 **Attach Screenshot:** Running Kubernetes nodes
-![Image](https://github.com/user-attachments/assets/ee74577b-4297-4174-a3c0-b888f0e3ebce)
-
----
-
-# 📌 Part 3: Deploy & Expose an Application
-
-### 🛠️ **3.1 Deploy Nginx to Kubernetes**
-
-#### **🔹 Deploy Nginx**
-```bash
-kubectl create deployment nginx --image=nginx
+```shell
+$ minikube delete && minikube start --kubernetes-version=v1.23.0 --memory=6g --bootstrapper=kubeadm --extra-config=kubelet.authentication-token-webhook=true --extra-config=kubelet.authorization-mode=Webhook --extra-config=scheduler.bind-address=0.0.0.0 --extra-config=controller-manager.bind-address=0.0.0.0
 ```
 
+The kube-prometheus stack includes a resource metrics API server, so the metrics-server addon is not necessary. Ensure the metrics-server addon is disabled on minikube:
 
-#### **🔹 Expose Deployment**
-```bash
-kubectl expose deployment nginx --type=LoadBalancer --port=80
-```
-📌 **Attach Screenshot:** Kubernetes service details
-![Image](https://github.com/user-attachments/assets/7a3b964d-e8c5-4ec4-9a35-6d51fe4de8b9)
-
----
-
-# 📌 Part 4: Security & Compliance
-
-### 🛠️ **4.1 Run Security Scans**
-
-#### **🔹 Install OWASP ZAP**
-```bash
-choco install zap -y
+```shell
+$ minikube addons disable metrics-server
 ```
 
-#### **🔹 Scan for Vulnerabilities**
-```bash
-zap-baseline.py -t http://your-load-balancer-url -r zap-report.html
-```
-📌 **Attach Screenshot:** Security scan results
-![Image](https://github.com/user-attachments/assets/7b775434-a97f-4463-8f46-c46884ac8b28)
+## Getting started
 
----
+Before deploying kube-prometheus in a production environment, read:
 
-# 📌 Part 5: Performance Optimization & Load Testing
+1. [Customizing kube-prometheus](docs/customizing.md)
+2. [Customization examples](docs/customizations)
+3. [Accessing Graphical User Interfaces](docs/access-ui.md)
+4. [Troubleshooting kube-prometheus](docs/troubleshooting.md)
 
-### 🛠️ **5.1 Install Load Testing Tools**
+## Documentation
 
-#### **🔹 Install k6**
-```bash
-choco install k6 -y  # Windows
-sudo apt install k6 -y  # Linux
-```
+1. [Continuous Delivery](examples/continuous-delivery)
+2. [Update to new version](docs/update.md)
+3. For more documentation on the project refer to `docs/` directory.
 
-#### **🔹 Run Load Test**
-Create `load-test.js`:
-```javascript
-import http from 'k6/http';
-import { check } from 'k6';
+## Contributing
 
-export default function () {
-    let res = http.get('http://your-load-balancer-url');
-    check(res, { 'status was 200': (r) => r.status == 200 });
-}
-```
-Run the test:
-```bash
-k6 run load-test.js
-```
-📌 **Attach Screenshot:** Load test results
-![Image](https://github.com/user-attachments/assets/d36d3f99-368a-4021-b3ef-7e7ac0d5bf83)
+To contribute to kube-prometheus, refer to [Contributing](CONTRIBUTING.md).
 
----
+## Join the discussion
 
-# 📌 Part 6: Monitoring & Logging
+If you have any questions or feedback regarding kube-prometheus, join the [kube-prometheus discussion](https://github.com/prometheus-operator/kube-prometheus/discussions). Alternatively, consider joining [the kubernetes slack #prometheus-operator channel](http://slack.k8s.io/) or project's bi-weekly [Contributor Office Hours](https://docs.google.com/document/d/1-fjJmzrwRpKmSPHtXN5u6VZnn39M28KqyQGBEJsqUOk/edit#).
 
-### 🛠️ **6.1 Set Up Prometheus & Grafana**
+## License
 
-#### **🔹 Deploy Prometheus Operator**
-```bash
-kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/kube-prometheus/main/manifests/setup/prometheus-operator.yaml
-```
-📌 **Attach Screenshot:** Prometheus running pods
-![Image](https://github.com/user-attachments/assets/1a9c3739-8760-4de7-969b-54233a7ad322)
-![Image](https://github.com/user-attachments/assets/3efead73-22f0-4d7f-afd8-a0ec8e7c97c3)
-![Image](https://github.com/user-attachments/assets/160b1cbe-8271-4341-9a12-a98f02777ffc)
-![Image](https://github.com/user-attachments/assets/18832e1c-22a5-4cf5-8780-8d5426f7f2a2)
-![Image](https://github.com/user-attachments/assets/bc4b8554-0547-42cb-b122-a1cb71cf2cc9)
-![Image](https://github.com/user-attachments/assets/ab6625a0-02fe-4c0e-8a15-0ac39cc46be5)
-
-
----
-
-## 🚀 Conclusion
-This guide provides a **detailed, step-by-step execution** of building a **fully automated, high-availability data-driven system**. Let me know if you need any modifications! 🔥
+Apache License 2.0, see [LICENSE](https://github.com/prometheus-operator/kube-prometheus/blob/main/LICENSE).
