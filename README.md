@@ -220,16 +220,6 @@ kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/kube-prom
 
 ---
 
-# 📌 Part 7: Final Submission Checklist
-
-✅ **GitHub Repository**: Upload all required files  
-✅ **Live Deployed Application**: Provide the URL  
-✅ **Monitoring Dashboard**: Share Grafana link  
-✅ **Performance & Security Test Reports**: Upload as artifacts  
-✅ **Architecture Diagram**: Attach `architecture.png`  
-✅ **Demo Video**: Upload `demo.mp4`  
-
-📌 **Attach Screenshot:** All running components
 
 ---
 
